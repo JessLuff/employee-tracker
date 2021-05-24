@@ -1,74 +1,203 @@
-// Packages needed for this application
+const mysql = require('mysql');
 const inquirer = require('inquirer');
-const fs = require('fs');
-const util = require('util');
+//const addDepartment = require('./functions');
 
-// Include generateMarkdown.js
-const writeToFile = require('./utils/generateMarkdown');
 
-const writeFileAsync = util.promisify(fs.writeFile);
+// create the connection information for the sql database
+const connection = mysql.createConnection({
+  host: 'localhost',
 
-// User input questions
-const promptUser = () => {
-    return inquirer.prompt([
-        {
-            type: 'input',
-            name: 'name',
-            message: 'What is your Github username?',
-        },
-        {
-            type: 'input',
-            name: 'email',
-            message: 'What is your email address?',
-        },
-        {
-            type: 'input',
-            name: 'title',
-            message: 'What is the title of the project?',
-        },
-        {
-            type: 'input',
-            name: 'description',
-            message: 'Enter a short description of your project.',
-        },
-        {
-            type: 'list', //Change input of this, options: 
-            name: 'license',
-            message: 'What kind of license should your project have?', 
-            choices: ['MIT', 'APACHE 2.0', 'GPL 3.0', 'BSD 3', 'None'],
-        },
-        {
-            type: 'input', //default to npm i
-            name: 'instructions',
-            message: 'How is this project installed?',
-            default: 'npm i',
-        },
-        {
-            type: 'input', //default to npm test
-            name: 'test',
-            message: 'How is this project tested?',
-            default: 'npm test',
-        },
-        {
-            type: 'input',
-            name: 'usage',
-            message: 'How should this project be used?',
-        },
-        {
-            type: 'input',
-            name: 'contribution',
-            message: 'How can this project be contributed to?',
-        },
-    ]);
+  // Your port; if not 3306
+  port: 3306,
+
+  // Your username
+  user: 'root',
+
+  // Your password
+  password: 'SQLp310!',
+  database: 'company_db',
+});
+
+// function which prompts the user for what action they should take
+const start = () => {
+  inquirer
+    .prompt({
+      name: 'function',
+      type: 'list',
+      message: 'What would you like to do?',
+      choices: ['View Employees', 'View Roles', 'View Departments', 'Add Employee', 'Add Role', 'Add Department'],
+    })
+    .then((answer) => {
+      // based on their answer, either call the bid or the post functions
+      if (answer.function === 'View Employees') {
+        viewEmployee();
+      } else if (answer.function === 'View Roles') {
+        viewRoles();
+    } else if (answer.function === 'View Departments') {
+        viewDepartments();
+    } else if (answer.function === 'Add Employee') {
+        addEmployee();
+    } else if (answer.function === 'Add Role') {
+        addRole();
+    } else if (answer.function === 'Add Department') {
+        addDepartment();
+      } else {
+        connection.end();
+      }
+    });
 };
 
-// Function to initializes prompt then file creations
-const init = () => {
-    promptUser()
-      .then((answers) => writeFileAsync('projectREADME.md', writeToFile(answers)))
-      .then(() => console.log('Successfully wrote to projectREADME.md'))
-      .catch((err) => console.error(err));
+const addDepartment = () => {
+    // prompt for info about the department
+    inquirer
+      .prompt([
+        {
+          name: 'name',
+          type: 'input',
+          message: 'What is the name of the department?',
+        },
+      ])
+      .then((answer) => {
+        // when finished prompting, insert a new item into the db with that info
+        connection.query(
+          'INSERT INTO department SET ?',
+
+          {
+            name: answer.name,
+          },
+          (err) => {
+            if (err) throw err;
+            console.log('The information was added successfully!');
+            // re-prompt the user for next function
+            start();
+          }
+        );
+      });
   };
 
-// Function call to initialize app
-init();
+  const addRole = () => {
+      connection.query('SELECT * FROM department', (err, results) => {
+          if (err) throw err;
+    // prompt for info about the department
+    inquirer
+      .prompt([
+        {
+          name: 'title',
+          type: 'input',
+          message: 'What is the title of this role?',
+        },
+        {
+            name: 'salary',
+            type: 'input',
+            message: 'What is the salary of this role?',
+        },
+        {
+            name: 'choice',
+            type: 'rawlist',
+            choices() {
+                const choiceArray = [];
+                results.forEach(({ name }) => {
+                    choiceArray.push(name);
+                });
+                return choiceArray;
+            },
+            message: 'What department is this role in?',
+        },
+      ])
+      .then((answer) => {
+        // when finished prompting, insert a new item into the db with that info
+        let chosenDepartment;
+        results.forEach((department) => {
+            if (department.name === answer.choice) {
+                chosenDepartment = department;
+            }
+        });
+        connection.query(
+          'INSERT INTO role SET ?',
+          [
+          {
+            title: answer.title,
+            salary: answer.salary,
+            department_id: chosenDepartment.id,
+          },
+        ],
+          (err) => {
+            if (err) throw err;
+            console.log('The information was added successfully!');
+            // re-prompt the user for next function
+            start();
+          }
+        );
+      });
+      });
+  };
+
+  const addEmployee = () => {
+    connection.query('SELECT * FROM role', (err, results) => {
+        if (err) throw err;
+  // prompt for info about the department
+  inquirer
+    .prompt([
+      {
+        name: 'first_name',
+        type: 'input',
+        message: 'What is the first name of the employee?',
+      },
+      {
+          name: 'last_name',
+          type: 'input',
+          message: 'What is the last name of the employee?',
+      },
+      {
+          name: 'choice',
+          type: 'rawlist',
+          choices() {
+              const choiceArray = [];
+              results.forEach(({ title }) => {
+                  choiceArray.push(title);
+              });
+              return choiceArray;
+          },
+          message: 'What role is this employee in?',
+      },
+    ])
+    .then((answer) => {
+      // when finished prompting, insert a new item into the db with that info
+      let chosenRole;
+      results.forEach((role) => {
+          if (role.title === answer.choice) {
+              chosenRole = role;
+          }
+      });
+      connection.query(
+        'INSERT INTO employee SET ?',
+        [
+        {
+          first_name: answer.first_name,
+          last_name: answer.last_name,
+          role_id: chosenRole.id,
+        },
+      ],
+        (err) => {
+          if (err) throw err;
+          console.log('The information was added successfully!');
+          // re-prompt the user for next function
+          start();
+        }
+      );
+    });
+    });
+};
+
+
+
+
+// connect to the mysql server and sql database
+connection.connect((err) => {
+  if (err) throw err;
+  // run the start function after the connection is made to prompt the user
+  start();
+});
+
+
+module.exports = start;
