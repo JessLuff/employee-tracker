@@ -47,6 +47,30 @@ const start = () => {
     });
 };
 
+const viewEmployee = () => {
+    connection.query('SELECT employee.first_name, employee.last_name, role.title FROM (employee INNER JOIN role ON employee.role_id = role.id)', (err, results) => {
+        if (err) throw err;
+        console.table(results);
+        start();
+    }
+)};
+
+const viewRoles = () => {
+    connection.query('SELECT role.title, role.salary, department.name FROM (role INNER JOIN department ON role.department_id = department.id)', (err, results) => {
+        if (err) throw err;
+        console.table(results);
+        start();
+    }
+)};
+
+const viewDepartments = () => {
+    connection.query('SELECT department.name FROM department', (err, results) => {
+        if (err) throw err;
+        console.table(results);
+        start();
+    }
+)};
+
 const addDepartment = () => {
     // prompt for info about the department
     inquirer
