@@ -1,7 +1,5 @@
 const mysql = require('mysql');
 const inquirer = require('inquirer');
-//const addDepartment = require('./functions');
-
 
 // create the connection information for the sql database
 const connection = mysql.createConnection({
@@ -25,7 +23,7 @@ const start = () => {
       name: 'function',
       type: 'list',
       message: 'What would you like to do?',
-      choices: ['View Employees', 'View Roles', 'View Departments', 'Add Employee', 'Add Role', 'Add Department'],
+      choices: ['View Employees', 'View Roles', 'View Departments', 'Add Employee', 'Add Role', 'Add Department', 'Update Employee Role'],
     })
     .then((answer) => {
       // based on their answer, either call the bid or the post functions
@@ -41,6 +39,8 @@ const start = () => {
         addRole();
     } else if (answer.function === 'Add Department') {
         addDepartment();
+    } else if (answer.function === 'Update Employee Role') {
+        updateRole();
       } else {
         connection.end();
       }
@@ -189,7 +189,86 @@ const addDepartment = () => {
     });
 };
 
+const updateRole = () => {
+    // query the database for all items being auctioned
+    connection.query('SELECT * FROM employee', (err, results) => {
+      if (err) throw err;
+      // prompt user for which employee to update
+      inquirer
+        .prompt([
+          {
+            name: 'employee_choice',
+            type: 'rawlist',
+            choices() {
+              const choiceArray = [];
+              results.forEach(({ first_name }) => {
+                choiceArray.push(first_name);
+              });
+              return choiceArray;
+            },
+            message: 'Which employee would you like to update?',
+          },
+        ])
+        .then((answer) => {
+          // get the information of the chosen item
+          let chosenEmployee;
+          results.forEach((employee) => {
+            if (employee.first_name === answer.employee_choice) {
+              chosenEmployee = employee;
+            }
+          });
 
+          connection.query('SELECT * FROM role', (err, results) => {
+            if (err) throw err;
+            // prompt user for which employee to update
+            inquirer
+              .prompt([
+                {
+                  name: 'role_choice',
+                  type: 'rawlist',
+                  choices() {
+                    const choiceArray = [];
+                    results.forEach(({ title }) => {
+                      choiceArray.push(title);
+                    });
+                    return choiceArray;
+                  },
+                  message: 'What is the role of this employee?',
+                },
+              ])
+              .then((answer) => {
+                // get the information of the chosen item
+                let chosenRole;
+                results.forEach((role) => {
+                    
+                  if (role.title === answer.role_choice) {
+                    chosenRole = role;
+                    console.log(role.title);
+                  }
+                });
+  
+
+            connection.query(
+              'UPDATE employee SET ? WHERE ?',
+              [
+                {
+                    role_id: chosenRole.id,
+                },
+                {
+                  first_name: chosenEmployee.first_name,
+                },
+              ],
+              (err) => {
+                if (err) throw err;
+                console.log('Information was updated successfully!');
+                start();
+              }
+            );
+              });
+        });
+    });
+  });
+};
 
 
 // connect to the mysql server and sql database
@@ -198,6 +277,3 @@ connection.connect((err) => {
   // run the start function after the connection is made to prompt the user
   start();
 });
-
-
-module.exports = start;
